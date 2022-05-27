@@ -13,7 +13,7 @@ import propofol.matchingservice.domain.board.service.ImageService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/matchings/images")
+@RequestMapping("/api/v1/images")
 @RequiredArgsConstructor
 public class ImageController {
 
@@ -34,7 +34,7 @@ public class ImageController {
                 "이미지 저장 성공", imageService.getStoredNamesAndSaveImages(files, findBoard, getProjectDir()));
     }
 
-    @GetMapping("{fileName}")
+    @GetMapping("/{fileName}")
     @ResponseStatus(HttpStatus.OK)
     public String findEncode64Image(@PathVariable("fileName") String fileName){
         return imageService.getBase64EncodeToString(getProjectDir(), fileName);

@@ -28,6 +28,7 @@ public class Board extends BaseEntity {
     private Long id;
 
     private String title;
+    @Lob
     private String content;
     private String nickName;
     private int recruit; // 모집 인원
@@ -41,6 +42,14 @@ public class Board extends BaseEntity {
     public void changeBoardStatus(boolean check){
         if(check) this.status = BoardStatus.ACTIVE;
         else this.status = BoardStatus.NONACTIVE;
+    }
+
+    public void upRecruited(){
+        this.recruited += 1;
+    }
+
+    public void downRecruited(){
+        this.recruited -= 1;
     }
     
     public void updateBoard(String title, String content, LocalDate startDate, LocalDate endDate, Integer recruit){
@@ -62,6 +71,10 @@ public class Board extends BaseEntity {
     @BatchSize(size = 10)
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BoardImage> boardImages = new ArrayList<>();
+
+    @BatchSize(size = 10)
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BoardMember> boardMembers = new ArrayList<>();
 
     @Builder(builderMethodName = "boardCreate")
     public Board(String title, String content, String nickName, int recruit, int recruited,

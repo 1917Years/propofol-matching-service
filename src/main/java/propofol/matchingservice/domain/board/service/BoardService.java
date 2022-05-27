@@ -6,10 +6,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import propofol.matchingservice.domain.board.entitiy.Board;
-import propofol.matchingservice.domain.board.entitiy.BoardTag;
-import propofol.matchingservice.domain.board.entitiy.BoardImage;
-import propofol.matchingservice.domain.board.entitiy.BoardTimeTable;
+import propofol.matchingservice.domain.board.entitiy.*;
 import propofol.matchingservice.domain.board.repository.BoardRepository;
 import propofol.matchingservice.domain.board.service.dto.BoardDto;
 import propofol.matchingservice.domain.exception.NoMatchMemberBoardException;
@@ -30,11 +27,12 @@ public class BoardService {
     private final ImageService imageService;
     private final TimeTableService timeTableService;
     private final BoardTagService tagService;
+    private final BoardMemberService boardMemberService;
 
     @Transactional
     public String saveMatchingBoard(String title, String content, String nickName, int recruit, String startDate,
                                     String endDate, Set<String> fileNames, List<Long> tagIds, List<String> weeks,
-                                    List<String> startTimes, List<String> endTimes){
+                                    List<String> startTimes, List<String> endTimes, Long memberId){
         Board saveBoard = boardRepository.save(createBoard(title, content, nickName, recruit, startDate, endDate));
 
         if(fileNames != null){
@@ -65,18 +63,19 @@ public class BoardService {
             }
         }
 
+        boardMemberService.save(memberId, saveBoard);
+
         return "ok";
     }
 
     @Transactional
-    public String updateMatchingBoard(Long boardId, BoardDto boardDto, Boolean status,
+    public String updateMatchingBoard(Long boardId, BoardDto boardDto,
                                       Set<String> fileNames, List<Long> tagIds){
 
         Board findBoard = findByBoardWithAllInfoId(boardId);
         LocalDate startT = LocalDate.parse(boardDto.getStartDate(), DateTimeFormatter.ISO_DATE);
         LocalDate endT = LocalDate.parse(boardDto.getEndDate(), DateTimeFormatter.ISO_DATE);
         findBoard.updateBoard(boardDto.getTitle(), boardDto.getContent(), startT, endT, boardDto.getRecruit());
-        if(status != null) findBoard.changeBoardStatus(status);
 
         if(fileNames != null){
             List<BoardImage> images = imageService.getImagesByStoreNames(fileNames);
@@ -111,6 +110,7 @@ public class BoardService {
         imageService.deleteAllByBoardId(boardId);
         tagService.deleteAllByBoardId(boardId);
         timeTableService.deleteAllById(boardId);
+        boardMemberService.deleteAll(boardId);
         boardRepository.delete(findBoard);
 
         return "ok";
@@ -171,9 +171,9 @@ public class BoardService {
                 .content(content)
                 .nickName(nickName)
                 .recruit(recruit)
+                .recruited(0)
                 .startDate(startD)
                 .endDate(endD)
-                .recruited(0)
                 .build();
         board.changeBoardStatus(true);
         return board;
@@ -191,6 +191,13 @@ public class BoardService {
     public Board findByBoardWithAllInfoId(Long boardId) {
         return boardRepository.findBoardWithImages(boardId)
                 .orElseThrow(() -> {throw new NotFoundBoardException("게시글을 찾을 수 없습니다.");});
+    }
+
+    @Transactional
+    public String changeStatus(long boardId, Boolean status) {
+        Board findBoard = findById(boardId);
+        findBoard.changeBoardStatus(status);
+        return "ok";
     }
 }
 
