@@ -321,14 +321,9 @@ public class BoardController {
 
         responseDto.setProfileString(profileString);
         responseDto.setProfileType(profileType);
-        responseDto.setApply(false);
+        responseDto.setApply(true);
 
-        for (BoardMember boardmember : board.getBoardMembers()) {
-            if(boardmember.getMemberId() == memberId){
-                responseDto.setApply(true);
-                break;
-            }
-        }
+        if(board.getCreatedBy().equals(String.valueOf(memberId))) responseDto.setApply(false);
 
         return responseDto;
     }
