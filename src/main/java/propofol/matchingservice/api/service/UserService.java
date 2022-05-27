@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import propofol.matchingservice.api.feign.UserServiceFeignClient;
 import propofol.matchingservice.api.feign.dto.MemberInfoDto;
+import propofol.matchingservice.api.feign.dto.MembersInfoResponseDto;
+
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -17,5 +20,9 @@ public class UserService {
 
     public String getMemberNickName(String token, String memberId){
         return userServiceFeignClient.getMemberNickNAme(token, memberId);
+    }
+
+    public MembersInfoResponseDto getMembersInfo(String token, Set<Long> memberIds, int page){
+        return userServiceFeignClient.getMembersInfo(token, memberIds, page);
     }
 }
