@@ -15,16 +15,14 @@ import propofol.matchingservice.api.feign.dto.MemberInfoDto;
 import propofol.matchingservice.api.feign.dto.TagDetailDto;
 import propofol.matchingservice.api.service.TagService;
 import propofol.matchingservice.api.service.UserService;
-import propofol.matchingservice.domain.board.entitiy.Board;
-import propofol.matchingservice.domain.board.entitiy.BoardImage;
-import propofol.matchingservice.domain.board.entitiy.BoardTag;
+import propofol.matchingservice.domain.board.entitiy.*;
 import propofol.matchingservice.domain.board.service.BoardService;
 import propofol.matchingservice.domain.board.service.BoardTagService;
 import propofol.matchingservice.domain.board.service.ImageService;
+import propofol.matchingservice.domain.board.service.TimeTableService;
 import propofol.matchingservice.domain.board.service.dto.BoardDto;
 import propofol.matchingservice.domain.exception.NoMatchMemberBoardException;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -42,6 +40,7 @@ public class BoardController {
     private final FileProperties fileProperties;
     private final ModelMapper modelMapper;
     private final BoardTagService boardTagService;
+    private final TimeTableService timeTableService;
 
     @ExceptionHandler
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -67,7 +66,7 @@ public class BoardController {
 
         return new ResponseDto(HttpStatus.CREATED.value(), "success", "매칭 게시글 저장 성공",
                 boardService.saveMatchingBoard(title, content, nickName, recruit,
-                        startDate, endDate, filesNames, tagIds, weeks, startTimes, endTimes));
+                        startDate, endDate, filesNames, tagIds, weeks, startTimes, endTimes, memberId));
     }
 
     @DeleteMapping("/{boardId}/{timeTableId}")
@@ -96,13 +95,21 @@ public class BoardController {
                                    @RequestParam("recruit") int recruit,
                                    @RequestParam("startDate") String startDate,
                                    @RequestParam("endDate") String endDate,
-                                   @RequestParam("status") Boolean status,
                                    @RequestParam(value = "tagId", required = false) List<Long> tagIds,
                                    @RequestParam(value = "fileName", required = false) Set<String> filesNames){
         BoardDto boardDto = createBoardDto(title, content, recruit, startDate, endDate);
 
         return new ResponseDto(HttpStatus.OK.value(), "success", "게시글 수정 성공",
-                boardService.updateMatchingBoard(boardId, boardDto, status, filesNames, tagIds));
+                boardService.updateMatchingBoard(boardId, boardDto, filesNames, tagIds));
+    }
+
+    @PostMapping("/{boardId}/status")
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseDto updateBoardStatus(@PathVariable("boardId") Long boardId,
+                                         @RequestParam("status") Boolean status){
+
+        return new ResponseDto(HttpStatus.OK.value(), "success", "게시글 수정 성공",
+                boardService.changeStatus(boardId, status));
     }
 
     @DeleteMapping("/{boardId}")
@@ -137,7 +144,6 @@ public class BoardController {
                                        @RequestParam(value = "tagId", required = false) Set<Long> tagIds,
                                        @Token Long memberId,
                                        @Jwt String token){
-
         return new ResponseDto(HttpStatus.OK.value(), "success",
                 "게시글 조회 성공", searchResult(keyword, page, tagIds, token, memberId));
     }
@@ -148,13 +154,24 @@ public class BoardController {
     @GetMapping("/{boardId}")
     @ResponseStatus(HttpStatus.OK)
     public ResponseDto getMatchingBoard(@PathVariable("boardId") Long boardId,
-                                        @Jwt String token){
+                                        @Jwt String token,
+                                        @Token Long memberId){
         Board board = boardService.findByBoardWithAllInfoId(boardId);
         MemberInfoDto memberInfo = userService.getMemberInfo(token, board.getCreatedBy());
 
         return new ResponseDto<>(HttpStatus.OK.value(), "success",
                 "게시글 조회 성공", createBoardDetailResponse(token, board,
-                memberInfo.getProfileString(), memberInfo.getProfileType()));
+                memberInfo.getProfileString(), memberInfo.getProfileType(), memberId));
+    }
+
+    /**
+     * 게시글 시간표 조회
+     */
+    @GetMapping("/{boardId}/timetables")
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseDto getMatchingBoardTimeTables(@PathVariable("boardId") Long boardId){
+        return new ResponseDto<>(HttpStatus.OK.value(), "success",
+                "게시글 조회 성공", createTimeTableListResponseDto(boardId));
     }
 
     /**
@@ -169,7 +186,6 @@ public class BoardController {
 
         return new ResponseDto(HttpStatus.OK.value(), "success", "게시글 조회 성공", boardPageResponseDto);
     }
-
 
     private BoardPageResponseDto searchResult(String keyword, int page, Set<Long> tagIds, String token, long memberId) {
         BoardPageResponseDto boardPageResponseDto = new BoardPageResponseDto();
@@ -187,9 +203,6 @@ public class BoardController {
         }else{
             // 모든 조건
             boardTags = boardTagService.getResultByConditions(keyword, page, tagIds, memberId);
-            for (BoardTag boardTag : boardTags) {
-                System.out.println("boardTag.getId() = " + boardTag.getId());
-            }
         }
 
         List<Board> boards = null;
@@ -251,6 +264,7 @@ public class BoardController {
         boards.forEach(board -> {
             BoardPageDetailResponseDto responseDto = modelMapper.map(board, BoardPageDetailResponseDto.class);
 
+
             List<BoardImage> boardImages = board.getBoardImages();
             if (boardImages.size() != 0) {
                 BoardImage boardImage = boardImages.get(0);
@@ -287,8 +301,8 @@ public class BoardController {
         return tags;
     }
 
-    private BoardDetailResponseDto createBoardDetailResponse(String token, Board board,
-                                                             String profileString, String profileType) {
+    private BoardDetailResponseDto createBoardDetailResponse(String token, Board board, String profileString,
+                                                             String profileType, Long memberId) {
         BoardDetailResponseDto responseDto = modelMapper.map(board, BoardDetailResponseDto.class);
 
         // TAG
@@ -307,6 +321,14 @@ public class BoardController {
 
         responseDto.setProfileString(profileString);
         responseDto.setProfileType(profileType);
+        responseDto.setApply(false);
+
+        for (BoardMember boardmember : board.getBoardMembers()) {
+            if(boardmember.getMemberId() == memberId){
+                responseDto.setApply(true);
+                break;
+            }
+        }
 
         return responseDto;
     }
@@ -319,5 +341,14 @@ public class BoardController {
 
     private BoardDto createBoardDto(String title, String content, int recruit, String startDate, String endDate) {
         return new BoardDto(title, content, startDate, endDate, recruit);
+    }
+
+    private TimeTableListResponseDto createTimeTableListResponseDto(Long boardId) {
+        TimeTableListResponseDto responseDto = new TimeTableListResponseDto();
+        List<BoardTimeTable> timeTables = timeTableService.findBoardTimeTables(boardId);
+        timeTables.forEach(timeTable -> {
+            responseDto.getData().add(modelMapper.map(timeTable, TimeTableDetailResponseDto.class));
+        });
+        return responseDto;
     }
 }
