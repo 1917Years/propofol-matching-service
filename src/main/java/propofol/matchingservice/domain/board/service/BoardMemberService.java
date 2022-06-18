@@ -12,7 +12,9 @@ import propofol.matchingservice.domain.board.entitiy.MemberStatus;
 import propofol.matchingservice.domain.board.repository.BoardMemberRepository;
 import propofol.matchingservice.domain.exception.NotFoundBoardMemberException;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -99,5 +101,14 @@ public class BoardMemberService {
 
     private BoardMember createBoardMember(long memberId, MemberStatus status) {
         return BoardMember.createBoardMember().memberId(memberId).status(status).build();
+    }
+
+    public Set<Long> findAllMemberId(Long boardId){
+        HashSet<Long> memberIds = new HashSet<>();
+        boardMemberRepository.findAllByBoardId(boardId).forEach(boardMember -> {
+            memberIds.add(boardMember.getMemberId());
+        });
+
+        return memberIds;
     }
 }
