@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Data
-public class MembersInfoResponseDto<T> {
+public class MembersInfoResponseDto {
     private Integer totalPageCount;
     private Long totalCount;
 
-    private List<MemberInfoDto> data = new ArrayList<>();
+    private List<MemberDto> data = new ArrayList<>();
 }

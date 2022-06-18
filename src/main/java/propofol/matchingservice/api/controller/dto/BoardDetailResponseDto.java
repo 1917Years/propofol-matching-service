@@ -20,7 +20,9 @@ public class BoardDetailResponseDto {
     private LocalDate startDate; // 시작 기간
     private LocalDate endDate; // 종료 기간
     private BoardStatus status;
+    private boolean master;
     private boolean isApply;
+    private boolean isJoin;
 
 
     private List<String> imageStrings = new ArrayList<>();

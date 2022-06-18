@@ -18,6 +18,7 @@ public class BoardPageDetailResponseDto {
     private LocalDate startDate; // 시작 기간
     private LocalDate endDate; // 종료 기간
     private BoardStatus status;
+    private String createdDate;
 
     private String image;
     private String imageType;

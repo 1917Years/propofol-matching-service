@@ -1,4 +1,4 @@
-package propofol.matchingservice.api.controller.dto;
+package propofol.matchingservice.api.feign.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,12 +10,13 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class MemberInfoDto {
+public class MemberDto {
     private Long id;
     private String nickName;
+    private String email;
     private String profileString;
     private String profileType;
     private String status;
 
-    private List<TagDetailResponseDto> tags = new ArrayList<>();
+    private List<TagDetailDto> tags = new ArrayList<>();
 }

@@ -12,4 +12,5 @@ public class BoardPageResponseDto {
     private Integer totalPageCount;
     private Long totalCount;
     private List<BoardPageDetailResponseDto> boards = new ArrayList<>();
+    private List<String> userTags = new ArrayList<>();
 }
