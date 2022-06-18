@@ -10,22 +10,21 @@ import propofol.matchingservice.api.common.annotation.Jwt;
 import propofol.matchingservice.api.common.annotation.Token;
 import propofol.matchingservice.api.common.exception.SaveImageException;
 import propofol.matchingservice.api.common.porperties.FileProperties;
+import propofol.matchingservice.api.common.porperties.MailProperties;
 import propofol.matchingservice.api.controller.dto.*;
+import propofol.matchingservice.api.feign.dto.MemberDto;
 import propofol.matchingservice.api.feign.dto.MemberInfoDto;
 import propofol.matchingservice.api.feign.dto.TagDetailDto;
 import propofol.matchingservice.api.service.TagService;
 import propofol.matchingservice.api.service.UserService;
 import propofol.matchingservice.domain.board.entitiy.*;
 import propofol.matchingservice.domain.board.service.BoardService;
-import propofol.matchingservice.domain.board.service.BoardTagService;
 import propofol.matchingservice.domain.board.service.ImageService;
 import propofol.matchingservice.domain.board.service.TimeTableService;
 import propofol.matchingservice.domain.board.service.dto.BoardDto;
 import propofol.matchingservice.domain.exception.NoMatchMemberBoardException;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -39,8 +38,8 @@ public class BoardController {
     private final TagService tagService;
     private final FileProperties fileProperties;
     private final ModelMapper modelMapper;
-    private final BoardTagService boardTagService;
     private final TimeTableService timeTableService;
+    private final MailProperties mailProperties;
 
     @ExceptionHandler
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -63,7 +62,6 @@ public class BoardController {
                                          @Token Long memberId,
                                          @Jwt String token) throws SaveImageException {
         String nickName = userService.getMemberNickName(token, String.valueOf(memberId));
-
         return new ResponseDto(HttpStatus.CREATED.value(), "success", "매칭 게시글 저장 성공",
                 boardService.saveMatchingBoard(title, content, nickName, recruit,
                         startDate, endDate, filesNames, tagIds, weeks, startTimes, endTimes, memberId));
@@ -187,10 +185,35 @@ public class BoardController {
         return new ResponseDto(HttpStatus.OK.value(), "success", "게시글 조회 성공", boardPageResponseDto);
     }
 
+    /**
+     * 팀 생성 완료 시 메일 전송
+     */
+    @GetMapping("/completeTeam")
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseDto completeTeam(@RequestParam("memberId") Set<Long> memberIds,
+                                     @RequestParam("title") String title,
+                                     @Jwt String token,
+                                     @Token Long memberId){
+        for (Long id : memberIds) {
+            System.out.println("id = " + id);
+        }
+        List<MemberDto> findMembers = userService.getMembersNoPage(token, memberIds);
+        HashMap<String, String> memberEmails = new HashMap<>();
+        String leaderEmail = null;
+        for (MemberDto findMember : findMembers) {
+            if(findMember.getId() != memberId) {
+                memberEmails.put(findMember.getNickName(), findMember.getEmail());
+            }else leaderEmail = findMember.getEmail();
+        }
+
+        return new ResponseDto(HttpStatus.OK.value(), "success", "팀 생성 성공 ",
+                boardService.sendMail(leaderEmail, memberEmails, mailProperties.getUsername(), title));
+    }
+
+
     private BoardPageResponseDto searchResult(String keyword, int page, Set<Long> tagIds, String token, long memberId) {
         BoardPageResponseDto boardPageResponseDto = new BoardPageResponseDto();
-        Page<Board> boardPage = null;
-        Page<BoardTag> boardTags = null;
+        Page<Board> boardPage;
 
         // QueryDsl 추후 추가 동적 조회
         if(keyword == null && tagIds == null){
@@ -199,10 +222,10 @@ public class BoardController {
             boardPage = boardService.getAllByKeyword(keyword, page, memberId);
         }else if(keyword == null && tagIds != null){
             // 태그 아이들만
-            boardTags = boardTagService.getAllByTagIds(tagIds, page, memberId);
+            boardPage = boardService.getAllByTagIds(tagIds, page, memberId);
         }else{
             // 모든 조건
-            boardTags = boardTagService.getResultByConditions(keyword, page, tagIds, memberId);
+            boardPage = boardService.getResultByConditions(keyword, page, tagIds, memberId);
         }
 
         List<Board> boards = null;
@@ -210,12 +233,6 @@ public class BoardController {
             boardPageResponseDto.setTotalPageCount(boardPage.getTotalPages());
             boardPageResponseDto.setTotalCount(boardPage.getTotalElements());
             boards = boardPage.getContent();
-        }
-
-        if(boardTags != null) {
-            boards = boardTags.stream().map(BoardTag::getBoard).collect(Collectors.toList());
-            boardPageResponseDto.setTotalPageCount(boardTags.getTotalPages());
-            boardPageResponseDto.setTotalCount(boardTags.getTotalElements());
         }
 
         List<TagDetailDto> tags = getTagDtosByPageBoard(token, boards);
@@ -232,13 +249,18 @@ public class BoardController {
         BoardPageResponseDto boardPageResponseDto = new BoardPageResponseDto();
 
         if(memberInfo != null && memberInfo.getTagInfos().size() != 0){
+
+            memberInfo.getTagInfos().forEach(tag -> {
+                boardPageResponseDto.getUserTags().add(tag.getName());
+            });
+
             Set<Long> tagIds = memberInfo.getTagInfos().stream().map(TagDetailDto::getId).collect(Collectors.toSet());
-            Page<BoardTag> boardPages = boardTagService.getAllByTagIds(tagIds, page, memberId);
+            Page<Board> boardPages = boardService.getAllByTagIds(tagIds, page, memberId);
             if(boardPages.getTotalElements() != 0) {
                 boardPageResponseDto.setTotalPageCount(boardPages.getTotalPages());
                 boardPageResponseDto.setTotalCount(boardPages.getTotalElements());
 
-                List<Board> boards = boardPages.stream().map(BoardTag::getBoard).collect(Collectors.toList());
+                List<Board> boards = boardPages.getContent();
                 List<TagDetailDto> tags = getTagDtosByPageBoard(token, boards);
 
                 return createPageDto(boardPageResponseDto, boards, tags);
@@ -274,13 +296,13 @@ public class BoardController {
                 responseDto.setImageType(boardImage.getContentType());
             }
 
-            tags.forEach(tag -> {
-                board.getBoardTags().forEach(boardTag -> {
-                    if (tag.getId() == boardTag.getTagId()) {
+            for (TagDetailDto tag : tags) {
+                for (BoardTag boardTag : board.getBoardTags()) {
+                    if(Objects.equals(tag.getId(), boardTag.getTagId())){
                         responseDto.getTagInfos().add(modelMapper.map(tag, TagDetailResponseDto.class));
                     }
-                });
-            });
+                }
+            }
 
             boardsResponseDto.add(responseDto);
         });
@@ -321,9 +343,18 @@ public class BoardController {
 
         responseDto.setProfileString(profileString);
         responseDto.setProfileType(profileType);
-        responseDto.setApply(true);
+        responseDto.setApply(false);
+        responseDto.setMaster(false);
+        responseDto.setJoin(false);
 
-        if(board.getCreatedBy().equals(String.valueOf(memberId))) responseDto.setApply(false);
+        List<BoardMember> boardMembers = board.getBoardMembers();
+        boardMembers.forEach(boardMember -> {
+            if(boardMember.getMemberId() == memberId) {
+                responseDto.setApply(true);
+                if(boardMember.getStatus() == MemberStatus.COMPLETE) responseDto.setJoin(true);
+            }
+        });
+        if(board.getCreatedBy().equals(String.valueOf(memberId))) responseDto.setMaster(true);
 
         return responseDto;
     }

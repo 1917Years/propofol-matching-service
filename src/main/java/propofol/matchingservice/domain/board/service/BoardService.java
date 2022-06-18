@@ -4,18 +4,25 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import propofol.matchingservice.domain.board.entitiy.*;
 import propofol.matchingservice.domain.board.repository.BoardRepository;
 import propofol.matchingservice.domain.board.service.dto.BoardDto;
+import propofol.matchingservice.domain.exception.MailSendException;
 import propofol.matchingservice.domain.exception.NoMatchMemberBoardException;
 import propofol.matchingservice.domain.exception.NotFoundBoardException;
 
+import javax.mail.MessagingException;
+import javax.mail.internet.MimeMessage;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -28,6 +35,7 @@ public class BoardService {
     private final TimeTableService timeTableService;
     private final BoardTagService tagService;
     private final BoardMemberService boardMemberService;
+    private final JavaMailSender mailSender;
 
     @Transactional
     public String saveMatchingBoard(String title, String content, String nickName, int recruit, String startDate,
@@ -197,6 +205,38 @@ public class BoardService {
     public String changeStatus(long boardId, Boolean status) {
         Board findBoard = findById(boardId);
         findBoard.changeBoardStatus(status);
+        return "ok";
+    }
+
+    public Page<Board> getAllByTagIds(Set<Long> tagIds, int page, long memberId){
+        PageRequest pageRequest = PageRequest.of(page - 1, 10);
+        return boardRepository.findAllByTagIdsAndNotMine(tagIds, String.valueOf(memberId), pageRequest);
+    }
+
+    public Page<Board> getResultByConditions(String keyword, int page, Set<Long> tagIds, long memberId) {
+        PageRequest pageRequest = PageRequest.of(page - 1, 10);
+        return boardRepository.findAllByConditions(tagIds, keyword, String.valueOf(memberId), pageRequest);
+    }
+
+    public String sendMail(String leaderMail, HashMap<String, String> memberEmails, String projectMail, String title) {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper mimeMessageHelper = null;
+        Set<Map.Entry<String, String>> entries = memberEmails.entrySet();
+
+        try {
+            mimeMessageHelper = new MimeMessageHelper(message, false, "UTF-8");
+            mimeMessageHelper.setFrom(projectMail);
+            mimeMessageHelper.setTo(leaderMail);
+            mimeMessageHelper.setSubject("[propofol] "+ title +"팀 생성 성공");
+            for (Map.Entry<String, String> entry : entries) {
+                mimeMessageHelper.setText(entry.getKey() + "님의 Email = " + entry.getValue() + "\n");
+            }
+        } catch (MessagingException e) {
+            throw new MailSendException("메일 전송 실패");
+        }
+
+        mailSender.send(message);
+        
         return "ok";
     }
 }
