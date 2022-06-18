@@ -11,7 +11,7 @@ import javax.persistence.*;
 @Getter
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "project_tag")
+@Table(name = "project_board_tag")
 public class BoardTag {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

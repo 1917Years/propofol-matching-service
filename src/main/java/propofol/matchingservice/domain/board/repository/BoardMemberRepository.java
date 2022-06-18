@@ -38,4 +38,6 @@ public interface BoardMemberRepository extends JpaRepository<BoardMember, Long> 
     @Query("select bm from BoardMember bm where bm.memberId = :memberId and bm.status = :status order by bm.id")
     Page<BoardMember> findBoardMemberByMemberIdAndStatus(@Param("memberId") Long memberId, Pageable pageable,
                                                          @Param("status") MemberStatus status);
+
+    List<BoardMember> findAllByBoardId(Long boardId);
 }

@@ -10,7 +10,7 @@ import javax.persistence.*;
 @Getter
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "project_image")
+@Table(name = "project_board_image")
 public class BoardImage {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "project_board_image_id")

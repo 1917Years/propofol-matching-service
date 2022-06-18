@@ -9,7 +9,8 @@ import propofol.matchingservice.api.common.annotation.Jwt;
 import propofol.matchingservice.api.common.annotation.Token;
 import propofol.matchingservice.api.common.porperties.FileProperties;
 import propofol.matchingservice.api.controller.dto.*;
-import propofol.matchingservice.api.feign.dto.TagDetailDto;
+import propofol.matchingservice.api.controller.dto.MemberInfoDto;
+import propofol.matchingservice.api.feign.dto.*;
 import propofol.matchingservice.api.service.BoardMemberApiService;
 import propofol.matchingservice.api.service.TagService;
 import propofol.matchingservice.api.service.UserService;
@@ -21,6 +22,7 @@ import propofol.matchingservice.domain.exception.NotFoundBoardMemberException;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -98,6 +100,17 @@ public class BoardMemberController {
     }
 
     /**
+     * 참여 멤버 목록 확인
+     */
+    @GetMapping("/{boardId}/membersList/noPage")
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseDto getBoardMembersList(@PathVariable("boardId") Long boardId,
+                                           @Jwt String token){
+        return new ResponseDto(HttpStatus.OK.value(), "success", "대기 목록 조회 성공",
+                createMemberDto(boardId, token));
+    }
+
+    /**
      * 신청하기
      */
     @PostMapping("/{boardId}/apply")
@@ -163,6 +176,34 @@ public class BoardMemberController {
                 "거절 성공", boardMemberApiService.rejectWithAlarm(boardId, memberId, requestId, token));
     }
 
+    /**
+     * 프로젝트 참여 중인 참가자 목록 조회
+     */
+    @GetMapping("/{boardId}/allMemberId")
+    public Set<Long> findNoWaitingMemberId(@PathVariable("boardId") Long boardId){
+        return boardMemberService.findAllMemberId(boardId);
+    }
+
+    private List<MemberDto> createMemberDto(Long boardId, String token) {
+        List<BoardMember> boarMembers
+                    = boardMemberService.getBoardByBoardIdAndNoMatchMemberStatus(boardId, WAITING);
+
+
+        Set<Long> memberIds = boarMembers.stream().map(BoardMember::getMemberId).collect(Collectors.toSet());
+
+        List<MemberDto> membersNoPage = userService.getMembersNoPage(token, memberIds);
+
+        membersNoPage.forEach(data -> {
+            boarMembers.forEach(boardMember -> {
+                if(data.getId() == boardMember.getMemberId()){
+                    data.setStatus(boardMember.getStatus().toString());
+                }
+            });
+        });
+
+        return membersNoPage;
+    }
+
     private PageMembersResponseDto createPageMemberDto(Long boardId, int page, String token, boolean type) {
         List<BoardMember> boarMembers;
         if(type) {
@@ -175,8 +216,10 @@ public class BoardMemberController {
 
         Set<Long> memberIds = boarMembers.stream().map(BoardMember::getMemberId).collect(Collectors.toSet());
 
+        MembersInfoResponseDto membersInfos = userService.getMembersInfo(token, memberIds, page);
+
         PageMembersResponseDto responseDto
-                = modelMapper.map(userService.getMembersInfo(token, memberIds, page), PageMembersResponseDto.class);
+                = modelMapper.map(membersInfos, PageMembersResponseDto.class);
 
         responseDto.getData().forEach(data -> {
             boarMembers.forEach(boardMember -> {
@@ -185,6 +228,7 @@ public class BoardMemberController {
                 }
             });
         });
+
         return responseDto;
     }
 
@@ -231,7 +275,7 @@ public class BoardMemberController {
 
             tags.forEach(tag -> {
                 board.getBoardTags().forEach(boardTag -> {
-                    if (tag.getId() == boardTag.getTagId()) {
+                    if (Objects.equals(tag.getId(), boardTag.getTagId())) {
                         responseDto.getTagInfos().add(modelMapper.map(tag, TagDetailResponseDto.class));
                     }
                 });
