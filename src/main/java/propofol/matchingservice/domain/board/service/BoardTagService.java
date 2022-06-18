@@ -21,13 +21,7 @@ public class BoardTagService {
         return "ok";
     }
 
-    public Page<BoardTag> getAllByTagIds(Set<Long> tagIds, int page, long memberId){
-        PageRequest pageRequest = PageRequest.of(page - 1, 10, Sort.by(Sort.Direction.DESC, "id"));
-        return tagRepository.findAllByTagIdsAndNotMine(tagIds, String.valueOf(memberId), pageRequest);
-    }
-
-    public Page<BoardTag> getResultByConditions(String keyword, int page, Set<Long> tagIds, long memberId) {
-        PageRequest pageRequest = PageRequest.of(page - 1, 10, Sort.by(Sort.Direction.DESC, "id"));
-        return tagRepository.findAllByConditions(tagIds, keyword, String.valueOf(memberId), pageRequest);
+    public void saveTag(BoardTag tag) {
+        tagRepository.save(tag);
     }
 }
