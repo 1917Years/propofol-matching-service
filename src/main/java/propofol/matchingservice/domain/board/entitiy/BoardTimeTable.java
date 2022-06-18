@@ -11,7 +11,7 @@ import java.time.LocalTime;
 @Getter
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "project_timetable")
+@Table(name = "project_board_timetable")
 public class BoardTimeTable {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
