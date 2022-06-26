@@ -1,6 +1,7 @@
 package propofol.matchingservice.api.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang.ObjectUtils;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -194,16 +195,16 @@ public class BoardController {
                                      @RequestParam("title") String title,
                                      @Jwt String token,
                                      @Token Long memberId){
-        for (Long id : memberIds) {
-            System.out.println("id = " + id);
-        }
         List<MemberDto> findMembers = userService.getMembersNoPage(token, memberIds);
         HashMap<String, String> memberEmails = new HashMap<>();
         String leaderEmail = null;
+
         for (MemberDto findMember : findMembers) {
-            if(findMember.getId() != memberId) {
+            if(ObjectUtils.equals(findMember.getId(), memberId)) {
+                leaderEmail = findMember.getEmail();
+            }else {
                 memberEmails.put(findMember.getNickName(), findMember.getEmail());
-            }else leaderEmail = findMember.getEmail();
+            }
         }
 
         return new ResponseDto(HttpStatus.OK.value(), "success", "팀 생성 성공 ",
