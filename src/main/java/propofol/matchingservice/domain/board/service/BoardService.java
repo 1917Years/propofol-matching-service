@@ -223,20 +223,21 @@ public class BoardService {
         MimeMessageHelper mimeMessageHelper = null;
         Set<Map.Entry<String, String>> entries = memberEmails.entrySet();
 
+        StringBuilder sb = new StringBuilder();
         try {
             mimeMessageHelper = new MimeMessageHelper(message, false, "UTF-8");
             mimeMessageHelper.setFrom(projectMail);
             mimeMessageHelper.setTo(leaderMail);
-            mimeMessageHelper.setSubject("[propofol] "+ title +"팀 생성 성공");
+            mimeMessageHelper.setSubject("[propofol] "+ title + "팀 생성 성공");
             for (Map.Entry<String, String> entry : entries) {
-                mimeMessageHelper.setText(entry.getKey() + "님의 Email = " + entry.getValue() + "\n");
+                sb.append("팀원 : " + entry.getKey() + "님의 Email = " + entry.getValue() + "\n");
             }
+            mimeMessageHelper.setText(sb.toString());
         } catch (MessagingException e) {
             throw new MailSendException("메일 전송 실패");
         }
-
         mailSender.send(message);
-        
+
         return "ok";
     }
 }
